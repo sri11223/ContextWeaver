@@ -23,11 +23,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/srikrishna/context-weaver"
+    "url": "https://github.com/sri11223/ContextWeaver"
   },
-  "homepage": "https://github.com/srikrishna/context-weaver#readme",
+  "homepage": "https://github.com/sri11223/ContextWeaver#readme",
   "bugs": {
-    "url": "https://github.com/srikrishna/context-weaver/issues"
+    "url": "https://github.com/sri11223/ContextWeaver/issues"
   },
   "type": "module",
   "main": "./dist/index.cjs",

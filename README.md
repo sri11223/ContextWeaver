@@ -364,7 +364,7 @@ npm run build
 
 ## License
 
-MIT © [Srikrishna](https://github.com/srikrishna)
+MIT © [Srikrishna](https://github.com/sri11223)
 
 ---
 
@@ -373,5 +373,5 @@ MIT © [Srikrishna](https://github.com/srikrishna)
 </p>
 
 <p align="center">
-  <a href="https://github.com/srikrishna/context-weaver">⭐ Star us on GitHub</a>
+  <a href="https://github.com/sri11223/ContextWeaver">⭐ Star us on GitHub</a>
 </p>
