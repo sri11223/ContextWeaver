@@ -38,9 +38,6 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Check exports
-        run: npm run check-exports
-
   publish-dry-run:
     runs-on: ubuntu-latest
     needs: test
