@@ -1,6 +1,21 @@
 // Main export
 export { ContextWeaver } from './context-weaver.js';
 
+// Smart Context (Zero-Config)
+export { 
+  SmartContextWeaver, 
+  createSmartContext,
+  type SmartContextOptions,
+  type SmartGetContextOptions,
+} from './smart/smart-context.js';
+
+// Smart Utilities
+export { AutoImportance, quickImportanceCheck, type ImportanceRule } from './smart/auto-importance.js';
+export { SemanticIndex, quickRelevanceScore } from './smart/semantic-index.js';
+export { LocalSummarizer, quickSummarize } from './smart/local-summarizer.js';
+export { LRUCache, TokenCache } from './smart/lru-cache.js';
+export { BloomFilter, CountingBloomFilter } from './smart/bloom-filter.js';
+
 // Types
 export type {
   Message,

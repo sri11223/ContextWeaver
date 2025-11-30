@@ -5,6 +5,61 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2024-11-30
+
+### Added
+- 🧠 **Smart Auto-Context System**: Zero-config intelligent context management
+  - `SmartContextWeaver` - The "it just works" context manager
+  - Auto-importance detection for messages (names, budgets, preferences, etc.)
+  - Built-in local summarization (no API calls needed!)
+  - Semantic similarity search with TF-IDF
+  - Automatic context optimization
+
+- 🚀 **High-Performance Data Structures**:
+  - `LRUCache<K,V>` - O(1) operations with TTL support
+  - `TokenCache` - Specialized cache for token counting
+  - `BloomFilter` - Fast probabilistic set membership
+  - `CountingBloomFilter` - Supports removal
+
+- 🔍 **Semantic Index**:
+  - TF-IDF based document retrieval
+  - No external dependencies
+  - Sub-linear search complexity
+  - Query-based context selection
+
+- 📝 **Local Summarizer**:
+  - TextRank-inspired extractive summarization
+  - Key point extraction from conversations
+  - No API calls required
+  - Preserves important entities
+
+- 🎯 **Auto-Importance Detection**:
+  - Pattern-based importance scoring
+  - Detects: names, budgets, emails, dates, preferences
+  - Customizable rules
+  - Works out of the box
+
+### Changed
+- New export path: `context-weaver/smart` for smart features
+- Enhanced TypeScript types for smart module
+- Improved test coverage (111 tests)
+
+### Example
+```typescript
+import { SmartContextWeaver } from 'context-weaver/smart';
+
+// Zero config - just works!
+const memory = new SmartContextWeaver();
+
+await memory.add('session-1', 'user', 'My budget is $500');
+await memory.add('session-1', 'user', 'Show me hotels');
+
+// Automatically keeps the budget mention because it's important
+const { messages } = await memory.getContext('session-1', {
+  currentQuery: 'Show me hotels'
+});
+```
+
 ## [0.3.0] - 2024-11-30
 
 ### Added

@@ -1,6 +1,6 @@
 {
   "name": "context-weaver",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Smart, persistent context memory for RAG applications. Stop managing chat history arrays manually.",
   "keywords": [
     "llm",
@@ -69,6 +69,16 @@
       "require": {
         "types": "./dist/strategies/index.d.cts",
         "default": "./dist/strategies/index.cjs"
+      }
+    },
+    "./smart": {
+      "import": {
+        "types": "./dist/smart/index.d.ts",
+        "default": "./dist/smart/index.js"
+      },
+      "require": {
+        "types": "./dist/smart/index.d.cts",
+        "default": "./dist/smart/index.cjs"
       }
     }
   },

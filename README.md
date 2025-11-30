@@ -6,6 +6,37 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/)
 
+## 🚀 NEW in v0.4: Smart Auto-Context
+
+**Zero config. Zero API calls. It just works.**
+
+```typescript
+import { SmartContextWeaver } from 'context-weaver/smart';
+
+const memory = new SmartContextWeaver(); // Zero config!
+
+await memory.add('session-1', 'user', 'My name is Alice');
+await memory.add('session-1', 'user', 'My budget is $500');
+await memory.add('session-1', 'user', 'ok thanks');
+await memory.add('session-1', 'user', 'Show me laptops');
+
+// ✨ Automatically keeps "My name is Alice" and "My budget is $500"
+// ✨ Drops "ok thanks" because it's not important
+// ✨ Uses semantic search to find relevant context for "laptops"
+const { messages } = await memory.getContext('session-1', {
+  currentQuery: 'Show me laptops'
+});
+```
+
+**What's inside:**
+- 🧠 **Auto-Importance Detection** - Names, budgets, emails auto-detected
+- 📝 **Local Summarization** - No OpenAI calls needed!
+- 🔍 **Semantic Search** - TF-IDF based, no vector DB
+- ⚡ **LRU Caching** - O(1) operations
+- 🎯 **Bloom Filters** - Fast session lookups
+
+---
+
 ## The Problem
 
 Building an AI chat app seems easy... until you handle "history."
@@ -50,9 +81,10 @@ const response = await openai.chat.completions.create({
 
 | Feature | Description |
 |---------|-------------|
+| 🧠 **Smart Auto-Context** | Zero-config intelligent context (NEW in v0.4!) |
 | 🎯 **Token Budgeting** | Automatically trims history to fit your token limit |
 | 📌 **Semantic Pinning** | Pin important messages that should never be dropped |
-| 📝 **Smart Summarization** | Summarize older messages to preserve context (optional) |
+| 📝 **Smart Summarization** | Summarize older messages to preserve context |
 | 🔌 **Pluggable Storage** | InMemory, Redis, Postgres - or bring your own |
 | 🪶 **Zero Dependencies** | No LangChain, no vector DBs, just TypeScript |
 | ⚡ **Drop-in Ready** | Works with OpenAI SDK, Vercel AI SDK, or raw fetch |
@@ -73,7 +105,30 @@ pnpm add context-weaver
 
 ## Quick Start
 
-### Basic Usage
+### 🌟 Smart Mode (Recommended)
+
+```typescript
+import { SmartContextWeaver } from 'context-weaver/smart';
+
+// Zero configuration - it just works!
+const memory = new SmartContextWeaver();
+
+// Messages are auto-analyzed for importance
+await memory.add('user-123', 'user', 'My name is Bob and my budget is $1000');
+await memory.add('user-123', 'assistant', 'Great! I can help you find options.');
+await memory.add('user-123', 'user', 'ok cool');
+await memory.add('user-123', 'user', 'Show me gaming laptops');
+
+// Get smart context - automatically:
+// ✅ Keeps important messages (name, budget)
+// ✅ Drops filler messages ("ok cool")
+// ✅ Uses semantic search for relevance
+const { messages } = await memory.getContext('user-123', {
+  currentQuery: 'Show me gaming laptops'
+});
+```
+
+### Basic Mode
 
 ```typescript
 import { ContextWeaver } from 'context-weaver';
@@ -331,13 +386,41 @@ const memory = new ContextWeaver({
 | `clear(sessionId)` | Clear a session |
 | `hasSession(sessionId)` | Check if session exists |
 
+### `SmartContextWeaver` (v0.4+)
+
+The smart, zero-config context manager with auto-importance detection.
+
+```typescript
+import { SmartContextWeaver } from 'context-weaver/smart';
+
+const memory = new SmartContextWeaver({
+  tokenLimit: 4000,          // Optional: default 4000
+  enableSemantic: true,      // Optional: enable semantic search
+  enableAutoImportance: true, // Optional: auto-detect important messages
+  enableLocalSummary: true,  // Optional: local summarization
+});
+```
+
+#### Smart Utilities
+
+| Import | Description |
+|--------|-------------|
+| `LRUCache<K,V>` | O(1) LRU cache with TTL |
+| `TokenCache` | Specialized token count cache |
+| `BloomFilter` | Fast probabilistic set |
+| `AutoImportance` | Importance detection |
+| `SemanticIndex` | TF-IDF semantic search |
+| `LocalSummarizer` | API-free summarization |
+
 ## Why ContextWeaver?
 
 | Feature | ContextWeaver | LangChain Memory | Raw Arrays |
 |---------|--------------|------------------|------------|
 | Zero Dependencies | ✅ | ❌ | ✅ |
 | Token Budgeting | ✅ | ⚠️ Limited | ❌ |
-| Semantic Pinning | ✅ | ❌ | ❌ |
+| Auto-Importance | ✅ | ❌ | ❌ |
+| Semantic Search | ✅ | ⚠️ Needs VectorDB | ❌ |
+| Local Summarization | ✅ | ❌ | ❌ |
 | Pluggable Storage | ✅ | ✅ | ❌ |
 | TypeScript Native | ✅ | ⚠️ | N/A |
 | Framework Lock-in | ❌ | ✅ | ❌ |
