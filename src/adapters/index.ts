@@ -1,6 +1,6 @@
 export { InMemoryAdapter } from './in-memory.js';
+export { RedisAdapter, type RedisAdapterOptions, type RedisClient } from './redis.js';
+export { PostgresAdapter, type PostgresAdapterOptions, type PostgresClient } from './postgres.js';
 
 // Future adapters:
-// export { RedisAdapter } from './redis.js';
-// export { PostgresAdapter } from './postgres.js';
 // export { JsonFileAdapter } from './json-file.js';

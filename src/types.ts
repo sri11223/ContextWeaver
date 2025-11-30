@@ -19,6 +19,8 @@ export interface Message {
   pinned?: boolean;
   /** Optional metadata for the message */
   metadata?: Record<string, unknown>;
+  /** Optional importance score (0-1) for priority-based selection */
+  importance?: number;
 }
 
 /**
@@ -42,6 +44,8 @@ export interface GetContextOptions {
   includeSummary?: boolean;
   /** Format output for specific provider */
   format?: 'openai' | 'anthropic' | 'raw';
+  /** Override the context selection strategy */
+  strategy?: ContextSelectionStrategy;
 }
 
 /**
@@ -58,6 +62,8 @@ export interface ContextResult {
   wasSummarized: boolean;
   /** Number of pinned messages included */
   pinnedCount: number;
+  /** Strategy used for selection (if any) */
+  strategyUsed?: string;
 }
 
 /**
@@ -71,6 +77,29 @@ export type SummarizerFunction = (messages: Message[]) => Promise<string>;
  * User can provide their own token counter for accuracy
  */
 export type TokenCounterFunction = (text: string) => number;
+
+/**
+ * Context selection strategy interface
+ * Implement this to create custom message selection algorithms
+ */
+export interface ContextSelectionStrategy {
+  /** Name of the strategy for debugging/metrics */
+  readonly name: string;
+  /** Select messages that fit within the token budget */
+  select(
+    messages: Message[],
+    maxTokens: number,
+    tokenCounter: TokenCounterFunction
+  ): Message[];
+}
+
+/**
+ * Hooks interface for observability (imported separately)
+ */
+export interface ContextWeaverHooksInterface {
+  emit(event: string, payload: unknown): Promise<void>;
+  recordResponseTime(ms: number): void;
+}
 
 /**
  * Configuration options for ContextWeaver
@@ -88,6 +117,10 @@ export interface ContextWeaverOptions {
   storage?: StorageAdapter;
   /** Auto-summarize when history exceeds this token count */
   summarizeThreshold?: number;
+  /** Context selection strategy */
+  strategy?: ContextSelectionStrategy;
+  /** Hooks for observability */
+  hooks?: ContextWeaverHooksInterface;
 }
 
 /**

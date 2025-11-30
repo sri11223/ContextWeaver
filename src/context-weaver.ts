@@ -9,6 +9,8 @@ import type {
   SummarizerFunction,
   TokenCounterFunction,
   SessionStats,
+  ContextSelectionStrategy,
+  ContextWeaverHooksInterface,
 } from './types.js';
 import { InMemoryAdapter } from './adapters/in-memory.js';
 import { defaultTokenCounter, countMessageTokens } from './token-counter.js';
@@ -47,6 +49,8 @@ export class ContextWeaver {
   private tokenLimit: number;
   private recentMessageCount: number;
   private summarizeThreshold: number;
+  private strategy?: ContextSelectionStrategy;
+  private hooks?: ContextWeaverHooksInterface;
 
   constructor(options: ContextWeaverOptions = {}) {
     this.storage = options.storage ?? new InMemoryAdapter();
@@ -55,6 +59,8 @@ export class ContextWeaver {
     this.tokenLimit = options.tokenLimit ?? 4000;
     this.recentMessageCount = options.recentMessageCount ?? 10;
     this.summarizeThreshold = options.summarizeThreshold ?? this.tokenLimit * 2;
+    this.strategy = options.strategy;
+    this.hooks = options.hooks;
   }
 
   /**
@@ -84,8 +90,10 @@ export class ContextWeaver {
     sessionId: string,
     role: MessageRole,
     content: string,
-    options: { pinned?: boolean; metadata?: Record<string, unknown> } = {}
+    options: { pinned?: boolean; metadata?: Record<string, unknown>; importance?: number } = {}
   ): Promise<string> {
+    const startTime = Date.now();
+    
     const message: Message = {
       id: generateId(),
       role,
@@ -93,9 +101,20 @@ export class ContextWeaver {
       timestamp: now(),
       pinned: options.pinned,
       metadata: options.metadata,
+      importance: options.importance,
     };
 
     await this.storage.addMessage(sessionId, message);
+
+    // Emit hook event
+    if (this.hooks) {
+      await this.hooks.emit('messageAdded', {
+        sessionId,
+        timestamp: message.timestamp,
+        message,
+      });
+      this.hooks.recordResponseTime(Date.now() - startTime);
+    }
 
     // Check if we should auto-summarize
     await this.maybeAutoSummarize(sessionId);
@@ -135,16 +154,39 @@ export class ContextWeaver {
     sessionId: string,
     options: GetContextOptions = {}
   ): Promise<ContextResult> {
+    const startTime = Date.now();
     const maxTokens = options.maxTokens ?? this.tokenLimit;
     const includePinned = options.includePinned ?? true;
     const includeSummary = options.includeSummary ?? true;
+    const activeStrategy = options.strategy ?? this.strategy;
 
     const allMessages = await this.storage.getMessages(sessionId);
     const summary = includeSummary ? await this.storage.getSummary(sessionId) : null;
 
     // Partition messages
     const { pinned, unpinned } = partitionMessages(allMessages);
-    const sortedUnpinned = sortByTimestamp(unpinned);
+    let sortedUnpinned = sortByTimestamp(unpinned);
+
+    // Apply strategy if configured
+    let strategyUsed: string | undefined;
+    if (activeStrategy) {
+      const remainingTokens = maxTokens - this.calculatePinnedTokens(pinned, summary);
+      sortedUnpinned = activeStrategy.select(sortedUnpinned, remainingTokens, this.tokenCounter);
+      strategyUsed = activeStrategy.name;
+
+      // Emit strategy event
+      if (this.hooks) {
+        await this.hooks.emit('strategyApplied', {
+          sessionId,
+          timestamp: Date.now(),
+          strategyName: activeStrategy.name,
+          inputMessages: unpinned.length,
+          outputMessages: sortedUnpinned.length,
+          tokensUsed: this.countMessagesTokens(sortedUnpinned),
+          maxTokens,
+        });
+      }
+    }
 
     // Start building context
     const result: LLMMessage[] = [];
@@ -197,13 +239,71 @@ export class ContextWeaver {
 
     result.push(...recentMessages);
 
+    // Check token limit warning
+    const usagePercentage = (tokenCount / maxTokens) * 100;
+    if (usagePercentage >= 80 && this.hooks) {
+      await this.hooks.emit('tokenLimitApproached', {
+        sessionId,
+        timestamp: Date.now(),
+        currentTokens: tokenCount,
+        maxTokens,
+        usagePercentage,
+      });
+    }
+
+    // Emit retrieval event
+    if (this.hooks) {
+      await this.hooks.emit('messagesRetrieved', {
+        sessionId,
+        timestamp: Date.now(),
+        messages: result.map(m => ({
+          id: '',
+          role: m.role,
+          content: m.content,
+          timestamp: Date.now(),
+        })),
+        totalTokens: tokenCount,
+        maxTokens,
+        strategyUsed: strategyUsed ?? null,
+      });
+      this.hooks.recordResponseTime(Date.now() - startTime);
+    }
+
     return {
       messages: result,
       tokenCount,
       messageCount: result.length,
       wasSummarized,
       pinnedCount: sortedPinned.length,
+      strategyUsed,
     };
+  }
+
+  /**
+   * Calculate tokens used by pinned messages and summary
+   */
+  private calculatePinnedTokens(pinned: Message[], summary: string | null): number {
+    let tokens = 0;
+    
+    if (summary) {
+      tokens += countMessageTokens({ role: 'system', content: `Previous conversation summary: ${summary}` }, this.tokenCounter);
+    }
+    
+    for (const msg of pinned) {
+      tokens += countMessageTokens({ role: msg.role, content: msg.content }, this.tokenCounter);
+    }
+    
+    return tokens;
+  }
+
+  /**
+   * Count tokens for a list of messages
+   */
+  private countMessagesTokens(messages: Message[]): number {
+    return messages.reduce((total, msg) => 
+      total + countMessageTokens({ role: msg.role, content: msg.content }, this.tokenCounter), 
+      0
+    );
   }
 
   /**
@@ -223,6 +323,15 @@ export class ContextWeaver {
    */
   async pin(sessionId: string, messageId: string): Promise<void> {
     await this.storage.updateMessage(sessionId, messageId, { pinned: true });
+    
+    if (this.hooks) {
+      await this.hooks.emit('messagePinned', {
+        sessionId,
+        timestamp: Date.now(),
+        messageId,
+        pinned: true,
+      });
+    }
   }
 
   /**
@@ -233,6 +342,15 @@ export class ContextWeaver {
    */
   async unpin(sessionId: string, messageId: string): Promise<void> {
     await this.storage.updateMessage(sessionId, messageId, { pinned: false });
+    
+    if (this.hooks) {
+      await this.hooks.emit('messageUnpinned', {
+        sessionId,
+        timestamp: Date.now(),
+        messageId,
+        pinned: false,
+      });
+    }
   }
 
   /**

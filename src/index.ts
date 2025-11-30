@@ -13,10 +13,14 @@ export type {
   SummarizerFunction,
   TokenCounterFunction,
   SessionStats,
+  ContextSelectionStrategy,
+  ContextWeaverHooksInterface,
 } from './types.js';
 
 // Adapters
 export { InMemoryAdapter } from './adapters/in-memory.js';
+export { RedisAdapter, type RedisAdapterOptions, type RedisClient } from './adapters/redis.js';
+export { PostgresAdapter, type PostgresAdapterOptions, type PostgresClient } from './adapters/postgres.js';
 
 // Strategies
 export {
@@ -28,6 +32,16 @@ export {
   type StrategyOptions,
   type StrategyResult,
 } from './strategies/index.js';
+
+// Hooks & Metrics
+export {
+  ContextWeaverHooks,
+  createConsoleLogHook,
+  createMetricsReporter,
+  type ContextWeaverEventType,
+  type ContextWeaverEventMap,
+  type ContextWeaverMetrics,
+} from './hooks.js';
 
 // Errors
 export {
