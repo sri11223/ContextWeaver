@@ -9,6 +9,7 @@
  * - Local summarization (no API needed)
  * - LRU caching for performance
  * - Smart context selection
+ * - Conversation pairs (keep Q&A together)
  */
 
 import type {
@@ -28,6 +29,7 @@ import { AutoImportance, quickImportanceCheck } from './auto-importance.js';
 import { SemanticIndex } from './semantic-index.js';
 import { LocalSummarizer } from './local-summarizer.js';
 import { BloomFilter } from './bloom-filter.js';
+import { ConversationPairManager, hasConversationReference } from './conversation-pairs.js';
 
 export interface SmartContextOptions {
   /** Max tokens for output (default: 4000) */
@@ -44,6 +46,10 @@ export interface SmartContextOptions {
   enableAutoImportance?: boolean;
   /** Enable local summarization (default: true) */
   enableLocalSummary?: boolean;
+  /** Enable conversation pairs - keep Q&A together (default: true) */
+  enableConversationPairs?: boolean;
+  /** Minimum recent Q&A pairs to always keep (default: 3) */
+  minRecentPairs?: number;
   /** Cache size for token counts (default: 5000) */
   cacheSize?: number;
 }
@@ -89,6 +95,7 @@ export class SmartContextWeaver {
   private autoImportance: AutoImportance;
   private semanticIndex: SemanticIndex;
   private localSummarizer: LocalSummarizer;
+  private pairManager: ConversationPairManager;
 
   // Performance caches
   private tokenCache: TokenCache;
@@ -99,6 +106,8 @@ export class SmartContextWeaver {
   private enableSemantic: boolean;
   private enableAutoImportance: boolean;
   private enableLocalSummary: boolean;
+  private enableConversationPairs: boolean;
+  private minRecentPairs: number;
 
   constructor(options: SmartContextOptions = {}) {
     this.storage = options.storage ?? new InMemoryAdapter();
@@ -109,11 +118,14 @@ export class SmartContextWeaver {
     this.enableSemantic = options.enableSemantic ?? true;
     this.enableAutoImportance = options.enableAutoImportance ?? true;
     this.enableLocalSummary = options.enableLocalSummary ?? true;
+    this.enableConversationPairs = options.enableConversationPairs ?? true;
+    this.minRecentPairs = options.minRecentPairs ?? 3;
 
     // Smart components
     this.autoImportance = new AutoImportance();
     this.semanticIndex = new SemanticIndex();
     this.localSummarizer = new LocalSummarizer();
+    this.pairManager = new ConversationPairManager();
 
     // Performance caches
     this.tokenCache = new TokenCache(options.cacheSize ?? 5000);
@@ -189,7 +201,18 @@ export class SmartContextWeaver {
     const allMessages = await this.storage.getMessages(sessionId);
     const summary = await this.storage.getSummary(sessionId);
 
-    // Score and categorize messages
+    // Use conversation pairs if enabled
+    if (this.enableConversationPairs) {
+      return this.getContextWithPairs(
+        allMessages,
+        summary,
+        maxTokens,
+        options.currentQuery,
+        sessionId
+      );
+    }
+
+    // Fall back to original scoring method
     const scored = this.scoreMessages(allMessages);
     
     // Get semantically relevant messages
@@ -214,6 +237,85 @@ export class SmartContextWeaver {
     }
 
     return result;
+  }
+
+  /**
+   * Get context using conversation pairs - keeps Q&A together
+   */
+  private async getContextWithPairs(
+    messages: Message[],
+    summary: string | null,
+    maxTokens: number,
+    currentQuery?: string,
+    sessionId?: string
+  ): Promise<ContextResult> {
+    // Build conversation pairs
+    const pairs = this.pairManager.buildPairs(messages);
+    
+    // Select best pairs based on importance, references, and recency
+    const selectedPairs = this.pairManager.selectPairs(pairs, {
+      maxTokens: summary ? maxTokens - this.tokenCounter(summary) : maxTokens,
+      currentQuery,
+      tokenCounter: this.tokenCounter,
+      minRecentPairs: this.minRecentPairs,
+    });
+    
+    // Convert back to messages
+    const selectedMessages = this.pairManager.pairsToMessages(selectedPairs);
+    
+    // Build final context
+    const result: LLMMessage[] = [];
+    let tokenCount = 0;
+    let wasSummarized = false;
+    let pinnedCount = 0;
+    
+    // Add summary first if exists
+    if (summary) {
+      const summaryMessage: LLMMessage = {
+        role: 'system',
+        content: `Previous context: ${summary}`,
+      };
+      const tokens = this.countTokensCached(summaryMessage);
+      if (tokenCount + tokens <= maxTokens) {
+        result.push(summaryMessage);
+        tokenCount += tokens;
+        wasSummarized = true;
+      }
+    }
+    
+    // Add selected messages
+    for (const msg of selectedMessages) {
+      const llmMsg: LLMMessage = { role: msg.role, content: msg.content };
+      const tokens = this.countTokensCached(llmMsg);
+      if (tokenCount + tokens <= maxTokens) {
+        result.push(llmMsg);
+        tokenCount += tokens;
+        if (msg.pinned) pinnedCount++;
+      }
+    }
+    
+    const contextResult: ContextResult = {
+      messages: result,
+      tokenCount,
+      messageCount: result.length,
+      wasSummarized,
+      pinnedCount,
+      strategyUsed: 'conversation-pairs',
+    };
+    
+    // Cache result
+    if (!currentQuery && sessionId) {
+      this.contextCache.set(this.cacheKey(sessionId, maxTokens), contextResult);
+    }
+    
+    return contextResult;
+  }
+
+  /**
+   * Check if current query references previous content
+   */
+  hasReference(query: string): boolean {
+    return hasConversationReference(query);
   }
 
   /**

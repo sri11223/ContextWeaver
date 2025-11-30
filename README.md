@@ -6,7 +6,39 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/)
 
-## 🚀 NEW in v0.4: Smart Auto-Context
+## 🚀 NEW in v0.5: Conversation Pairs
+
+**Your AI remembers what it said. "Explain step 2" just works.**
+
+```typescript
+import { SmartContextWeaver } from 'context-weaver/smart';
+
+const memory = new SmartContextWeaver({
+  enableConversationPairs: true
+});
+
+await memory.add('s1', 'user', 'Give me 3 options for deployment');
+await memory.add('s1', 'assistant', 'Option 1: Vercel. Option 2: AWS. Option 3: Railway.');
+await memory.add('s1', 'user', 'Thanks');
+await memory.add('s1', 'assistant', 'You are welcome!');
+
+// Later: User says "Explain option 2"
+const { messages } = await memory.getContext('s1', {
+  currentQuery: 'Explain option 2 in detail'
+});
+// ✨ Automatically includes the "3 options" Q&A pair!
+// ✨ AI knows exactly what "option 2" refers to
+```
+
+**Why this matters:**
+- 🔗 **Q&A Stay Together** - User question + AI response are never split
+- 🔍 **Reference Detection** - "step 2", "the first one", "you mentioned" → finds the right context
+- 🎯 **Smart Pair Selection** - Keeps referenced pairs, drops irrelevant ones
+- 💡 **No More "I don't recall"** - AI always has the context for back-references
+
+---
+
+## 🧠 Smart Auto-Context (v0.4+)
 
 **Zero config. Zero API calls. It just works.**
 
@@ -29,6 +61,7 @@ const { messages } = await memory.getContext('session-1', {
 ```
 
 **What's inside:**
+- 💬 **Conversation Pairs** - Q&A stay together (NEW in v0.5!)
 - 🧠 **Auto-Importance Detection** - Names, budgets, emails auto-detected
 - 📝 **Local Summarization** - No OpenAI calls needed!
 - 🔍 **Semantic Search** - TF-IDF based, no vector DB
@@ -394,12 +427,47 @@ The smart, zero-config context manager with auto-importance detection.
 import { SmartContextWeaver } from 'context-weaver/smart';
 
 const memory = new SmartContextWeaver({
-  tokenLimit: 4000,          // Optional: default 4000
-  enableSemantic: true,      // Optional: enable semantic search
-  enableAutoImportance: true, // Optional: auto-detect important messages
-  enableLocalSummary: true,  // Optional: local summarization
+  tokenLimit: 4000,            // Optional: default 4000
+  enableSemantic: true,        // Optional: enable semantic search
+  enableAutoImportance: true,  // Optional: auto-detect important messages
+  enableLocalSummary: true,    // Optional: local summarization
+  enableConversationPairs: true, // NEW v0.5: Keep Q&A together
+  minRecentPairs: 3,           // NEW v0.5: Min pairs to always keep
 });
 ```
+
+#### Conversation Pairs (v0.5+)
+
+When users say things like "explain step 2" or "go with option B", the AI needs the original context. Conversation Pairs ensures Q&A stay together:
+
+```typescript
+import { 
+  SmartContextWeaver,
+  ConversationPairManager,
+  hasConversationReference 
+} from 'context-weaver/smart';
+
+// The manager builds pairs from messages
+const pairManager = new ConversationPairManager();
+const pairs = pairManager.buildPairs(messages);
+
+// Check if a query references previous content
+if (hasConversationReference('explain step 2')) {
+  // Automatically finds and includes the pair with steps
+}
+
+// Or just use SmartContextWeaver with pairs enabled
+const memory = new SmartContextWeaver({
+  enableConversationPairs: true
+});
+```
+
+**Reference patterns detected:**
+- Numbered: "step 2", "option 1", "point 3"
+- Ordinal: "the first one", "the last thing"
+- Back-reference: "you mentioned", "as you said before"
+- Continuation: "tell me more", "explain that"
+- Demonstrative: "that approach", "this method"
 
 #### Smart Utilities
 

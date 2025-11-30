@@ -5,6 +5,54 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2024-11-30
+
+### Added
+- 💬 **Conversation Pairs**: Keep Q&A Together
+  - `ConversationPairManager` - Links user questions with AI responses
+  - `ConversationPairStrategy` - Pair-aware context selection
+  - Reference detection for "step 2", "option 1", etc.
+  - Topic continuity tracking
+  - Smart pair pruning (drop pairs, not individual messages)
+
+- 🔍 **Reference Detection**:
+  - Detects numbered references: "step 2", "option 1"
+  - Detects ordinal references: "the first one", "the last thing"
+  - Detects back-references: "you mentioned earlier", "as you said"
+  - Detects continuation phrases: "tell me more", "explain that"
+  - Detects pronouns & demonstratives: "that thing", "this approach"
+
+- 🎯 **Smart Pair Selection**:
+  - Always keeps recent pairs intact
+  - Prioritizes referenced pairs when user says "explain step 2"
+  - Boosts importance of pairs with lists/steps (likely to be referenced)
+  - Resolves cross-pair references automatically
+
+### Changed
+- `SmartContextWeaver` now supports `enableConversationPairs` option
+- New `minRecentPairs` option for guaranteed recent context
+- Extended test coverage (130 tests)
+
+### Example
+```typescript
+import { SmartContextWeaver } from 'context-weaver/smart';
+
+const memory = new SmartContextWeaver({
+  enableConversationPairs: true,
+  minRecentPairs: 3
+});
+
+await memory.add('s1', 'user', 'Give me 3 options');
+await memory.add('s1', 'assistant', 'Option 1: Fast. Option 2: Reliable. Option 3: Cheap.');
+await memory.add('s1', 'user', 'Thanks');
+await memory.add('s1', 'assistant', 'You are welcome!');
+
+// Later: "explain option 2" - automatically includes the options pair!
+const { messages } = await memory.getContext('s1', {
+  currentQuery: 'Explain option 2 in detail'
+});
+```
+
 ## [0.4.0] - 2024-11-30
 
 ### Added

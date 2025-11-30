@@ -1,6 +1,6 @@
 {
   "name": "context-weaver",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Smart, persistent context memory for RAG applications. Stop managing chat history arrays manually.",
   "keywords": [
     "llm",
@@ -24,7 +24,8 @@
     "summarization",
     "redis",
     "postgres",
-    "observability"
+    "observability",
+    "conversation-pairs"
   ],
   "author": "Srikrishna <sri11223@github.com>",
   "license": "MIT",

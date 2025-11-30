@@ -10,6 +10,9 @@ import {
   SmartContextWeaver,
   quickSummarize,
   quickImportanceCheck,
+  ConversationPairManager,
+  ConversationPairStrategy,
+  hasConversationReference,
 } from '../src/smart/index.js';
 import type { Message } from '../src/types.js';
 import { generateId, now } from '../src/utils.js';
@@ -445,5 +448,273 @@ describe('SmartContextWeaver', () => {
     await zeroConfig.add('test', 'user', 'Hello world');
     const result = await zeroConfig.getContext('test');
     expect(result.messages).toHaveLength(1);
+  });
+});
+
+// ============================================
+// Conversation Pairs Tests
+// ============================================
+
+describe('ConversationPairManager', () => {
+  let pairManager: ConversationPairManager;
+
+  beforeEach(() => {
+    pairManager = new ConversationPairManager();
+  });
+
+  it('should build conversation pairs from messages', () => {
+    const messages: Message[] = [
+      { id: '1', role: 'user', content: 'What is TypeScript?', timestamp: 1000 },
+      { id: '2', role: 'assistant', content: 'TypeScript is a typed superset of JavaScript.', timestamp: 1001 },
+      { id: '3', role: 'user', content: 'Give me 3 steps to learn it', timestamp: 1002 },
+      { id: '4', role: 'assistant', content: 'Step 1: Learn basics. Step 2: Practice. Step 3: Build projects.', timestamp: 1003 },
+    ];
+
+    const pairs = pairManager.buildPairs(messages);
+    expect(pairs).toHaveLength(2);
+    expect(pairs[0].userMessage.content).toBe('What is TypeScript?');
+    expect(pairs[0].assistantMessage?.content).toContain('typed superset');
+    expect(pairs[1].userMessage.content).toContain('3 steps');
+    expect(pairs[1].assistantMessage?.content).toContain('Step 1');
+  });
+
+  it('should handle unpaired messages', () => {
+    const messages: Message[] = [
+      { id: '1', role: 'user', content: 'Hello', timestamp: 1000 },
+      { id: '2', role: 'user', content: 'Anyone there?', timestamp: 1001 },
+      { id: '3', role: 'assistant', content: 'Yes, I am here!', timestamp: 1002 },
+    ];
+
+    const pairs = pairManager.buildPairs(messages);
+    // Should create pairs even for consecutive user messages
+    expect(pairs.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('should keep pairs together when selecting context', () => {
+    const messages: Message[] = [
+      { id: '1', role: 'user', content: 'What is React?', timestamp: 1000 },
+      { id: '2', role: 'assistant', content: 'React is a UI library.', timestamp: 1001 },
+      { id: '3', role: 'user', content: 'Show me 2 options', timestamp: 1002 },
+      { id: '4', role: 'assistant', content: 'Option A: Hooks. Option B: Classes.', timestamp: 1003 },
+    ];
+
+    const pairs = pairManager.buildPairs(messages);
+    const selected = pairManager.selectPairs(pairs, { maxTokens: 1000 });
+    
+    // Each selected pair should have both userMessage and assistantMessage
+    for (const pair of selected) {
+      expect(pair.userMessage).toBeDefined();
+      if (pair.userMessage.role === 'user') {
+        expect(pair.assistantMessage).toBeDefined();
+      }
+    }
+  });
+
+  it('should detect references and prioritize referenced pairs', () => {
+    const messages: Message[] = [
+      { id: '1', role: 'user', content: 'Give me 3 steps', timestamp: 1000 },
+      { id: '2', role: 'assistant', content: 'Step 1: A. Step 2: B. Step 3: C.', timestamp: 1001 },
+      { id: '3', role: 'user', content: 'Thanks', timestamp: 1002 },
+      { id: '4', role: 'assistant', content: 'You are welcome!', timestamp: 1003 },
+      { id: '5', role: 'user', content: 'More filler message', timestamp: 1004 },
+      { id: '6', role: 'assistant', content: 'Filler response', timestamp: 1005 },
+    ];
+
+    const pairs = pairManager.buildPairs(messages);
+    
+    // Select with a query that references "step 2"
+    const selected = pairManager.selectPairs(pairs, {
+      maxTokens: 1000,
+      currentQuery: 'Explain step 2 in more detail',
+    });
+    
+    // The pair with steps should be included
+    const stepPair = selected.find(p => p.assistantMessage?.content.includes('Step 1'));
+    expect(stepPair).toBeDefined();
+  });
+
+  it('should convert pairs back to messages', () => {
+    const messages: Message[] = [
+      { id: '1', role: 'user', content: 'Hello', timestamp: 1000 },
+      { id: '2', role: 'assistant', content: 'Hi there!', timestamp: 1001 },
+    ];
+
+    const pairs = pairManager.buildPairs(messages);
+    const restored = pairManager.pairsToMessages(pairs);
+    
+    expect(restored).toHaveLength(2);
+    expect(restored[0].content).toBe('Hello');
+    expect(restored[1].content).toBe('Hi there!');
+  });
+
+  it('should handle system messages', () => {
+    const messages: Message[] = [
+      { id: '0', role: 'system', content: 'You are a helpful assistant', timestamp: 999 },
+      { id: '1', role: 'user', content: 'Hello', timestamp: 1000 },
+      { id: '2', role: 'assistant', content: 'Hi!', timestamp: 1001 },
+    ];
+
+    const pairs = pairManager.buildPairs(messages);
+    
+    // System message should be preserved
+    const systemPair = pairs.find(p => p.userMessage.role === 'system');
+    expect(systemPair).toBeDefined();
+  });
+
+  it('should provide pair statistics', () => {
+    const messages: Message[] = [
+      { id: '1', role: 'user', content: 'Give me 3 options', timestamp: 1000 },
+      { id: '2', role: 'assistant', content: '1. Option A\n2. Option B\n3. Option C', timestamp: 1001 },
+      { id: '3', role: 'user', content: 'Tell me about option 2', timestamp: 1002 },
+      { id: '4', role: 'assistant', content: 'Option B is great!', timestamp: 1003 },
+    ];
+
+    const pairs = pairManager.buildPairs(messages);
+    const stats = pairManager.getStats(pairs);
+    
+    expect(stats.totalPairs).toBe(2);
+    expect(stats.pairsWithSteps).toBeGreaterThanOrEqual(1);
+    expect(stats.pairsWithReferences).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('hasConversationReference', () => {
+  it('should detect step references', () => {
+    expect(hasConversationReference('explain step 2')).toBe(true);
+    expect(hasConversationReference('what about step 3?')).toBe(true);
+    expect(hasConversationReference('step 1 please')).toBe(true);
+  });
+
+  it('should detect option references', () => {
+    expect(hasConversationReference('go with option 1')).toBe(true);
+    expect(hasConversationReference('what is option 2?')).toBe(true);
+    expect(hasConversationReference('I prefer option three')).toBe(true);
+  });
+
+  it('should detect ordinal references', () => {
+    expect(hasConversationReference('the first one')).toBe(true);
+    expect(hasConversationReference('the second option')).toBe(true);
+    expect(hasConversationReference('the last thing')).toBe(true);
+  });
+
+  it('should detect explicit back-references', () => {
+    expect(hasConversationReference('you mentioned earlier')).toBe(true);
+    expect(hasConversationReference('as you said before')).toBe(true);
+    expect(hasConversationReference('what you told me')).toBe(true);
+  });
+
+  it('should detect continuation phrases', () => {
+    expect(hasConversationReference('tell me more about it')).toBe(true);
+    expect(hasConversationReference('explain that further')).toBe(true);
+    expect(hasConversationReference('elaborate on this')).toBe(true);
+  });
+
+  it('should return false for simple queries without references', () => {
+    expect(hasConversationReference('What is TypeScript?')).toBe(false);
+    expect(hasConversationReference('Hello world')).toBe(false);
+  });
+});
+
+describe('ConversationPairStrategy', () => {
+  it('should apply pair strategy to messages', () => {
+    const strategy = new ConversationPairStrategy();
+    
+    const messages: Message[] = [
+      { id: '1', role: 'user', content: 'List 3 programming languages', timestamp: 1000 },
+      { id: '2', role: 'assistant', content: '1. Python 2. JavaScript 3. TypeScript', timestamp: 1001 },
+      { id: '3', role: 'user', content: 'What is the weather?', timestamp: 1002 },
+      { id: '4', role: 'assistant', content: 'I cannot check weather.', timestamp: 1003 },
+    ];
+
+    const result = strategy.apply(messages, {
+      maxTokens: 1000,
+      currentQuery: 'Tell me about number 2 in detail',
+    });
+
+    // Should include the programming languages pair since query references "number 2"
+    expect(result.some(m => m.content.includes('Python'))).toBe(true);
+  });
+
+  it('should prioritize referenced pairs', () => {
+    const strategy = new ConversationPairStrategy({ minRecentPairs: 1 });
+    
+    const messages: Message[] = [
+      { id: '1', role: 'user', content: 'Give me 2 options', timestamp: 1000 },
+      { id: '2', role: 'assistant', content: 'Option A: Fast. Option B: Reliable.', timestamp: 1001 },
+      { id: '3', role: 'user', content: 'Unrelated question', timestamp: 1002 },
+      { id: '4', role: 'assistant', content: 'Unrelated answer', timestamp: 1003 },
+    ];
+
+    const result = strategy.apply(messages, {
+      maxTokens: 1000,
+      currentQuery: 'I want option B',
+    });
+
+    // Should include the options pair
+    expect(result.some(m => m.content.includes('Option A'))).toBe(true);
+    expect(result.some(m => m.content.includes('Option B'))).toBe(true);
+  });
+
+  it('should analyze messages and return statistics', () => {
+    const strategy = new ConversationPairStrategy();
+    
+    const messages: Message[] = [
+      { id: '1', role: 'user', content: 'Give me steps', timestamp: 1000 },
+      { id: '2', role: 'assistant', content: 'Step 1: Do A. Step 2: Do B.', timestamp: 1001 },
+    ];
+
+    const stats = strategy.analyze(messages);
+    expect(stats.totalPairs).toBe(1);
+    expect(stats.pairsWithSteps).toBe(1);
+  });
+});
+
+describe('SmartContextWeaver with Conversation Pairs', () => {
+  it('should enable conversation pairs mode', async () => {
+    const smart = new SmartContextWeaver({
+      enableConversationPairs: true,
+      minRecentPairs: 2,
+    });
+
+    await smart.add('s1', 'user', 'What are 3 steps to deploy?');
+    await smart.add('s1', 'assistant', 'Step 1: Build. Step 2: Test. Step 3: Deploy.');
+    await smart.add('s1', 'user', 'Thanks!');
+    await smart.add('s1', 'assistant', 'You are welcome!');
+
+    const result = await smart.getContext('s1', {
+      currentQuery: 'Explain step 2 in detail',
+    });
+
+    // Should include the steps pair when referencing step 2
+    expect(result.messages.some(m => m.content.includes('Step 1'))).toBe(true);
+  });
+
+  it('should keep question and answer together', async () => {
+    const smart = new SmartContextWeaver({
+      enableConversationPairs: true,
+    });
+
+    await smart.add('s1', 'user', 'What is the capital of France?');
+    await smart.add('s1', 'assistant', 'The capital of France is Paris.');
+    
+    const result = await smart.getContext('s1');
+    
+    // Both question and answer should be present
+    const hasQuestion = result.messages.some(m => m.content.includes('capital of France'));
+    const hasAnswer = result.messages.some(m => m.content.includes('Paris'));
+    expect(hasQuestion).toBe(true);
+    expect(hasAnswer).toBe(true);
+  });
+
+  it('should work without conversation pairs enabled (backward compatible)', async () => {
+    const smart = new SmartContextWeaver({
+      enableConversationPairs: false,
+    });
+
+    await smart.add('s1', 'user', 'Hello');
+    await smart.add('s1', 'assistant', 'Hi there!');
+    
+    const result = await smart.getContext('s1');
+    expect(result.messages).toHaveLength(2);
   });
 });
