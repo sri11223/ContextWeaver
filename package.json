@@ -1,0 +1,81 @@
+{
+  "name": "context-weaver",
+  "version": "0.1.0",
+  "description": "Smart, persistent context memory for RAG applications. Stop managing chat history arrays manually.",
+  "keywords": [
+    "llm",
+    "openai",
+    "anthropic",
+    "rag",
+    "context",
+    "memory",
+    "chat",
+    "history",
+    "token",
+    "ai",
+    "gpt",
+    "claude",
+    "conversation",
+    "context-window",
+    "vercel-ai"
+  ],
+  "author": "Srikrishna",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/srikrishna/context-weaver"
+  },
+  "homepage": "https://github.com/srikrishna/context-weaver#readme",
+  "bugs": {
+    "url": "https://github.com/srikrishna/context-weaver/issues"
+  },
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./adapters": {
+      "import": {
+        "types": "./dist/adapters/index.d.ts",
+        "default": "./dist/adapters/index.js"
+      },
+      "require": {
+        "types": "./dist/adapters/index.d.cts",
+        "default": "./dist/adapters/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "tsup": "^8.0.1",
+    "typescript": "^5.3.2",
+    "vitest": "^1.0.4"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
