@@ -1,6 +1,6 @@
 {
   "name": "context-weaver",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Smart, persistent context memory for RAG applications. Stop managing chat history arrays manually.",
   "keywords": [
     "llm",
@@ -17,13 +17,17 @@
     "claude",
     "conversation",
     "context-window",
-    "vercel-ai"
+    "vercel-ai",
+    "langchain",
+    "chatbot",
+    "token-limit",
+    "summarization"
   ],
-  "author": "Srikrishna",
+  "author": "Srikrishna <sri11223@github.com>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/sri11223/ContextWeaver"
+    "url": "git+https://github.com/sri11223/ContextWeaver.git"
   },
   "homepage": "https://github.com/sri11223/ContextWeaver#readme",
   "bugs": {
@@ -53,29 +57,53 @@
         "types": "./dist/adapters/index.d.cts",
         "default": "./dist/adapters/index.cjs"
       }
+    },
+    "./strategies": {
+      "import": {
+        "types": "./dist/strategies/index.d.ts",
+        "default": "./dist/strategies/index.js"
+      },
+      "require": {
+        "types": "./dist/strategies/index.d.cts",
+        "default": "./dist/strategies/index.cjs"
+      }
     }
   },
   "files": [
     "dist",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "eslint src --ext .ts",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint src tests",
+    "lint:fix": "eslint src tests --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": "npm run build"
+    "check-exports": "attw --pack . && publint",
+    "prepublishOnly": "npm run build && npm run test",
+    "prepare": "npm run build"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.16.0",
+    "@eslint/js": "^9.15.0",
     "@types/node": "^20.10.0",
+    "eslint": "^9.15.0",
+    "prettier": "^3.4.0",
+    "publint": "^0.2.0",
     "tsup": "^8.0.1",
     "typescript": "^5.3.2",
+    "typescript-eslint": "^8.15.0",
     "vitest": "^1.0.4"
   },
   "engines": {
     "node": ">=18.0.0"
-  }
+  },
+  "sideEffects": false
 }
