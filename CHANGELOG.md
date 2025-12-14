@@ -5,6 +5,60 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2024-12-14
+
+### Added
+- 🌊 **Streaming Support**: Handle OpenAI/Anthropic streaming responses
+  - `addStream()` - Add streaming assistant responses
+  - `StreamBuffer` - Efficient chunk buffering
+  - Automatic token counting for streams
+  - Compatible with OpenAI SDK v4+ and Anthropic SDK
+
+- 🔧 **Tool/Function Calling**: Proper support for OpenAI tool calls
+  - `addToolCall()` - Add tool call messages
+  - `addToolResult()` - Add tool execution results
+  - Automatic tool message formatting
+  - Preserves tool call context
+
+- ⏰ **Session Management**: Auto-cleanup and TTL
+  - `SessionManager` - Centralized session lifecycle
+  - Configurable TTL per session
+  - Automatic cleanup of expired sessions
+  - Session statistics and monitoring
+
+- 🗜️ **Message Compression**: Reduce storage size
+  - `compressMessage()` - Compress message content
+  - `decompressMessage()` - Restore compressed messages
+  - zlib-based compression
+  - Transparent compression for old messages
+
+### Changed
+- Extended test coverage (253 tests, +123 from v0.5.0)
+- Enhanced TypeScript types for streaming and tools
+- Improved documentation with streaming examples
+
+### Example
+```typescript
+import { ContextWeaver } from 'context-weaver';
+import OpenAI from 'openai';
+
+const memory = new ContextWeaver();
+const openai = new OpenAI();
+
+// Streaming support
+const stream = await openai.chat.completions.create({
+  model: 'gpt-4',
+  messages: [{ role: 'user', content: 'Hello' }],
+  stream: true
+});
+await memory.addStream('session-1', 'assistant', stream);
+
+// Tool calling
+const toolCall = { id: 'call_123', name: 'get_weather', arguments: '{"city":"SF"}' };
+await memory.addToolCall('session-1', toolCall);
+await memory.addToolResult('session-1', 'call_123', '{"temp":72}');
+```
+
 ## [0.5.0] - 2024-11-30
 
 ### Added

@@ -58,6 +58,55 @@ export {
   type ContextWeaverMetrics,
 } from './hooks.js';
 
+// Streaming Support
+export {
+  StreamingHandler,
+  createStreamAccumulator,
+  wrapStream,
+  extractOpenAIText,
+  extractAnthropicText,
+  type OpenAIStreamChunk,
+  type AnthropicStreamChunk,
+  type StreamOptions,
+  type StreamResult,
+  type ToolCall,
+} from './streaming.js';
+
+// Tool/Function Calling Support
+export {
+  ToolCallHandler,
+  createToolExecutor,
+  createParallelToolExecutor,
+  parseOpenAIToolCalls,
+  hasToolCalls,
+  type ToolCallRequest,
+  type ToolResult,
+  type FunctionDefinition,
+  type ToolCallOptions,
+} from './tool-calls.js';
+
+// Session Management
+export {
+  SessionManager,
+  createSessionManager,
+  createSessionMiddleware,
+  type SessionMetadata,
+  type SessionManagerOptions,
+  type SessionListResult,
+} from './session-manager.js';
+
+// Compression
+export {
+  CompressedStorageAdapter,
+  ContentDeduplicator,
+  createCompressedAdapter,
+  estimateMemorySize,
+  formatBytes,
+  type CompressionStrategy,
+  type CompressionOptions,
+  type CompressionStats,
+} from './compression.js';
+
 // Errors
 export {
   ContextWeaverError,
