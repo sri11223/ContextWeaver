@@ -1,6 +1,6 @@
 {
   "name": "context-weaver",
-  "version": "0.7.0",
+  "version": "1.0.0",
   "description": "Smart, persistent context memory for RAG applications. Stop managing chat history arrays manually.",
   "keywords": [
     "llm",

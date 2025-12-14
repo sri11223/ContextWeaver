@@ -128,6 +128,18 @@ export {
   type LoggerOptions,
 } from './logger.js';
 
+// Export/Import
+export {
+  exportSession,
+  importSession,
+  exportAllSessions,
+  importSessions,
+  type ExportFormat,
+  type ExportOptions,
+  type ImportOptions,
+  type SessionExport,
+} from './export-import.js';
+
 // Errors
 export {
   ContextWeaverError,

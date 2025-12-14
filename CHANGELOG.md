@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2024-12-14 🎉
+
+### STABLE RELEASE
+
+First stable release! Production-ready with comprehensive features.
+
+**What's Included:**
+- ✅ Smart Auto-Context with conversation pairs
+- ✅ Streaming support (OpenAI/Anthropic)
+- ✅ Tool/Function calling
+- ✅ Session management with TTL
+- ✅ Message compression
+- ✅ Retry logic & circuit breaker
+- ✅ Enhanced logging
+- ✅ Export/Import sessions
+- ✅ Redis & Postgres adapters
+- ✅ 253 tests passing
+
+### Semantic Versioning Promise
+
+Starting v1.0.0, we follow strict semantic versioning:
+- **MAJOR**: Breaking API changes
+- **MINOR**: New features, backward compatible
+- **PATCH**: Bug fixes, backward compatible
+
 ## [0.7.0] - 2024-12-14
 
 ### Added
