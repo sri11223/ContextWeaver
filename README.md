@@ -1,245 +1,219 @@
 # 🧵 ContextWeaver
 
-> **Smart, persistent context memory for RAG applications. Stop managing chat history arrays manually.**
+> **Stop getting "Token Limit Exceeded" errors in your AI chatbot. Smart context management that just works.**
 
 [![npm version](https://badge.fury.io/js/context-weaver.svg)](https://www.npmjs.com/package/context-weaver)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/)
 
-## 🚀 NEW in v0.5: Conversation Pairs
-
-**Your AI remembers what it said. "Explain step 2" just works.**
-
-```typescript
-import { SmartContextWeaver } from 'context-weaver/smart';
-
-const memory = new SmartContextWeaver({
-  enableConversationPairs: true
-});
-
-await memory.add('s1', 'user', 'Give me 3 options for deployment');
-await memory.add('s1', 'assistant', 'Option 1: Vercel. Option 2: AWS. Option 3: Railway.');
-await memory.add('s1', 'user', 'Thanks');
-await memory.add('s1', 'assistant', 'You are welcome!');
-
-// Later: User says "Explain option 2"
-const { messages } = await memory.getContext('s1', {
-  currentQuery: 'Explain option 2 in detail'
-});
-// ✨ Automatically includes the "3 options" Q&A pair!
-// ✨ AI knows exactly what "option 2" refers to
-```
-
-**Why this matters:**
-- 🔗 **Q&A Stay Together** - User question + AI response are never split
-- 🔍 **Reference Detection** - "step 2", "the first one", "you mentioned" → finds the right context
-- 🎯 **Smart Pair Selection** - Keeps referenced pairs, drops irrelevant ones
-- 💡 **No More "I don't recall"** - AI always has the context for back-references
+**v1.0.0 - Production Ready** • Zero Dependencies • 253 Tests • TypeScript
 
 ---
 
-## 🧠 Smart Auto-Context (v0.4+)
+## ⚡ Quick Start (30 seconds)
 
-**Zero config. Zero API calls. It just works.**
+```bash
+npm install context-weaver
+```
+
+```typescript
+import { ContextWeaver } from 'context-weaver';
+import OpenAI from 'openai';
+
+const openai = new OpenAI();
+const memory = new ContextWeaver({ tokenLimit: 4000 });
+
+// Add messages
+await memory.add('user-123', 'user', 'My budget is $500');
+await memory.add('user-123', 'assistant', 'I can help you find options!');
+
+// Get context (always fits token limit!)
+const { messages } = await memory.getContext('user-123');
+
+// Send to OpenAI
+const response = await openai.chat.completions.create({
+  model: 'gpt-4',
+  messages // ✅ Never crashes. Always fits.
+});
+```
+
+**That's it! No token counting. No manual trimming. No crashes.** 🎉
+
+---
+
+## ❌ The Problem
+
+Every AI developer hits this wall:
+
+```javascript
+// Your chatbot code
+const history = await getMessages(userId);
+const response = await openai.chat.completions.create({
+  model: 'gpt-4',
+  messages: history // 💥 Error: "maximum context length exceeded"
+});
+```
+
+**What goes wrong:**
+1. 🔥 **Token limit crashes** - Conversation gets too long, app crashes
+2. 🧠 **Lost context** - Slicing messages loses user's name, goals, preferences
+3. 🍝 **Complex code** - Token counting, Redis management, manual cleanup
+4. ⏰ **Wastes dev time** - Spend days building what should take minutes
+
+---
+
+## ✅ The Solution
+
+**ContextWeaver manages conversation history automatically:**
+
+```javascript
+import { ContextWeaver } from 'context-weaver';
+
+const memory = new ContextWeaver({ tokenLimit: 4000 });
+
+// Add messages - simple!
+await memory.add('user-123', 'user', 'My name is Alice');
+await memory.add('user-123', 'user', 'My budget is $500');
+// ... 50 more messages later ...
+
+// Get context - always fits!
+const { messages } = await memory.getContext('user-123');
+
+// Send to AI - never crashes!
+const response = await openai.chat.completions.create({
+  model: 'gpt-4',
+  messages // ✅ Guaranteed to fit. Keeps important stuff.
+});
+```
+
+**What it does:**
+- ✅ **Auto token management** - Always fits your limit
+- ✅ **Smart selection** - Keeps important messages (name, budget, goals)
+- ✅ **Drops filler** - Removes "ok", "thanks", empty messages
+- ✅ **Zero dependencies** - No heavy frameworks
+- ✅ **Production ready** - Sessions, TTL, Redis, Postgres
+
+---
+
+## 🎯 Features
+
+| What You Get | Why It Matters |
+|--------------|----------------|
+| 🧠 **Smart Context** | Keeps important messages, drops filler automatically |
+| 🎯 **Token Budgeting** | Never exceed your token limit, no math needed |
+| 💬 **Conversation Pairs** | Q&A stay together ("explain step 2" just works) |
+| 🔌 **Storage Adapters** | Redis, Postgres, or in-memory - your choice |
+| 📝 **Streaming Support** | OpenAI, Anthropic, Google - all handled |
+| 🔄 **Session Management** | Auto-cleanup, TTL, background jobs included |
+| 📊 **Observability** | Hooks for logging, metrics, monitoring |
+| 🪶 **Lightweight** | Zero dependencies, 347 KB package |
+
+---
+
+## 📦 Installation
+
+```bash
+npm install context-weaver
+```
+
+---
+
+## 🚀 Usage Examples
+
+### Basic Chat (Copy-Paste Ready)
+
+```typescript
+import { ContextWeaver } from 'context-weaver';
+import OpenAI from 'openai';
+
+const openai = new OpenAI();
+const memory = new ContextWeaver({ tokenLimit: 4000 });
+
+async function chat(userId: string, message: string) {
+  // 1. Add user message
+  await memory.add(userId, 'user', message);
+  
+  // 2. Get optimized context (always fits!)
+  const { messages } = await memory.getContext(userId);
+  
+  // 3. Send to AI
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4',
+    messages
+  });
+  
+  const reply = response.choices[0].message.content;
+  
+  // 4. Save AI response
+  await memory.add(userId, 'assistant', reply);
+  
+  return reply;
+}
+
+// Use it
+await chat('user-123', 'Hello! My budget is $500');
+await chat('user-123', 'Show me laptops');
+```
+
+---
+
+### Smart Mode (Auto-Importance)
 
 ```typescript
 import { SmartContextWeaver } from 'context-weaver/smart';
 
 const memory = new SmartContextWeaver(); // Zero config!
 
-await memory.add('session-1', 'user', 'My name is Alice');
-await memory.add('session-1', 'user', 'My budget is $500');
-await memory.add('session-1', 'user', 'ok thanks');
-await memory.add('session-1', 'user', 'Show me laptops');
-
-// ✨ Automatically keeps "My name is Alice" and "My budget is $500"
-// ✨ Drops "ok thanks" because it's not important
-// ✨ Uses semantic search to find relevant context for "laptops"
-const { messages } = await memory.getContext('session-1', {
-  currentQuery: 'Show me laptops'
-});
-```
-
-**What's inside:**
-- 💬 **Conversation Pairs** - Q&A stay together (NEW in v0.5!)
-- 🧠 **Auto-Importance Detection** - Names, budgets, emails auto-detected
-- 📝 **Local Summarization** - No OpenAI calls needed!
-- 🔍 **Semantic Search** - TF-IDF based, no vector DB
-- ⚡ **LRU Caching** - O(1) operations
-- 🎯 **Bloom Filters** - Fast session lookups
-
----
-
-## The Problem
-
-Building an AI chat app seems easy... until you handle "history."
-
-```javascript
-// ❌ The "hope and pray" approach
-const history = await db.getMessages(userId);
-const recent = history.slice(-10); // Hope this fits!
-const response = await openai.chat.completions.create({
-  messages: [...recent, newMessage] // What if 'recent' is too big? 💥 Crash.
-});
-```
-
-**Why this breaks:**
-- 🔥 **Token Limits** - You can't send unlimited history. It gets expensive and crashes.
-- 🧠 **Lost Context** - Simple slicing forgets important info (user's name, goals, preferences).
-- 🍝 **Spaghetti Code** - Fetching from Redis, trimming tokens, formatting for OpenAI... every single time.
-- 🔒 **Framework Lock-in** - LangChain forces you to use their entire chain system just for memory.
-
-## The Solution
-
-```javascript
-// ✅ With ContextWeaver
-import { ContextWeaver } from 'context-weaver';
-
-const memory = new ContextWeaver({ tokenLimit: 4000 });
-
-// Add messages (fire and forget)
-await memory.add(sessionId, 'user', 'My budget is $500');
-await memory.add(sessionId, 'assistant', 'I can help you find options in that range!');
-
-// Get optimized context (safe to send to LLM)
-const { messages } = await memory.getContext(sessionId);
-
-const response = await openai.chat.completions.create({
-  model: 'gpt-4',
-  messages, // Always fits. Never crashes. 🎯
-});
-```
-
-## Features
-
-| Feature | Description |
-|---------|-------------|
-| 🧠 **Smart Auto-Context** | Zero-config intelligent context (NEW in v0.4!) |
-| 🎯 **Token Budgeting** | Automatically trims history to fit your token limit |
-| 📌 **Semantic Pinning** | Pin important messages that should never be dropped |
-| 📝 **Smart Summarization** | Summarize older messages to preserve context |
-| 🔌 **Pluggable Storage** | InMemory, Redis, Postgres - or bring your own |
-| 🪶 **Zero Dependencies** | No LangChain, no vector DBs, just TypeScript |
-| ⚡ **Drop-in Ready** | Works with OpenAI SDK, Vercel AI SDK, or raw fetch |
-
-## Installation
-
-```bash
-npm install context-weaver
-```
-
-```bash
-yarn add context-weaver
-```
-
-```bash
-pnpm add context-weaver
-```
-
-## Quick Start
-
-### 🌟 Smart Mode (Recommended)
-
-```typescript
-import { SmartContextWeaver } from 'context-weaver/smart';
-
-// Zero configuration - it just works!
-const memory = new SmartContextWeaver();
-
-// Messages are auto-analyzed for importance
+// Add messages - it figures out what's important
 await memory.add('user-123', 'user', 'My name is Bob and my budget is $1000');
-await memory.add('user-123', 'assistant', 'Great! I can help you find options.');
 await memory.add('user-123', 'user', 'ok cool');
 await memory.add('user-123', 'user', 'Show me gaming laptops');
 
-// Get smart context - automatically:
-// ✅ Keeps important messages (name, budget)
-// ✅ Drops filler messages ("ok cool")
-// ✅ Uses semantic search for relevance
+// Get smart context
 const { messages } = await memory.getContext('user-123', {
   currentQuery: 'Show me gaming laptops'
 });
+// ✅ Keeps: name, budget
+// ✅ Drops: "ok cool"
 ```
 
-### Basic Mode
+---
+
+### Production Setup (Redis)
 
 ```typescript
-import { ContextWeaver } from 'context-weaver';
+import { ContextWeaver, RedisAdapter } from 'context-weaver';
+import Redis from 'ioredis';
 
-// Initialize with token limit
-const memory = new ContextWeaver({ 
-  tokenLimit: 4000,      // Max tokens for context
-  recentMessageCount: 10 // Keep at least 10 recent messages
+const redis = new Redis(process.env.REDIS_URL);
+
+const memory = new ContextWeaver({
+  storage: new RedisAdapter(redis, { 
+    ttl: 86400 // 24 hours
+  }),
+  tokenLimit: 8000
 });
 
-// Add messages to a session
-await memory.add('user-123', 'user', 'Hello! I need help planning a trip.');
-await memory.add('user-123', 'assistant', 'I\'d love to help! Where are you thinking of going?');
-await memory.add('user-123', 'user', 'I want to visit Japan in April.');
-
-// Get context (always fits your token budget!)
-const context = await memory.getContext('user-123');
-
-console.log(context.messages);     // Ready for OpenAI
-console.log(context.tokenCount);   // Estimated token count
-console.log(context.messageCount); // Number of messages included
+// Now all messages stored in Redis with auto-expiry!
+await memory.add('user-456', 'user', 'Hello');
 ```
 
-### With OpenAI SDK
+---
+
+### Streaming (OpenAI/Anthropic)
 
 ```typescript
-import OpenAI from 'openai';
-import { ContextWeaver } from 'context-weaver';
+const stream = await openai.chat.completions.create({
+  model: 'gpt-4',
+  messages,
+  stream: true
+});
 
-const openai = new OpenAI();
-const memory = new ContextWeaver({ tokenLimit: 4000 });
-
-async function chat(sessionId: string, userMessage: string) {
-  // Store the user's message
-  await memory.add(sessionId, 'user', userMessage);
-  
-  // Get optimized context
-  const { messages } = await memory.getContext(sessionId);
-  
-  // Call OpenAI
-  const response = await openai.chat.completions.create({
-    model: 'gpt-4',
-    messages,
-  });
-  
-  const assistantMessage = response.choices[0].message.content!;
-  
-  // Store assistant's response
-  await memory.add(sessionId, 'assistant', assistantMessage);
-  
-  return assistantMessage;
-}
+// One line - handles all streaming complexity!
+await memory.addStream('user-789', 'assistant', stream);
 ```
 
-### With Vercel AI SDK
-
-```typescript
-import { openai } from '@ai-sdk/openai';
-import { generateText } from 'ai';
-import { ContextWeaver } from 'context-weaver';
-
-const memory = new ContextWeaver({ tokenLimit: 4000 });
-
-async function chat(sessionId: string, userMessage: string) {
-  await memory.add(sessionId, 'user', userMessage);
-  
-  const { messages } = await memory.getContext(sessionId);
-  
-  const { text } = await generateText({
-    model: openai('gpt-4'),
-    messages,
-  });
-  
-  await memory.add(sessionId, 'assistant', text);
-  
-  return text;
-}
-```
+---
 
 ## Pinning Important Messages
 
