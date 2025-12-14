@@ -5,6 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2024-12-14
+
+### Added
+- 🔄 **Retry Logic**: Automatic retry with exponential backoff
+  - `retry()` - Retry failed operations automatically
+  - Configurable retry attempts and backoff
+  - Smart error classification (retryable vs fatal)
+  - Exponential backoff with jitter
+
+- 🛡️ **Circuit Breaker**: Protect against cascading failures
+  - `CircuitBreaker` - Automatic failure detection
+  - Three states: CLOSED, OPEN, HALF_OPEN
+  - Sliding window for failure tracking
+  - Automatic recovery attempts
+
+- 📊 **Enhanced Logging**: Structured logging and observability
+  - `Logger` - Structured logging with levels
+  - Context tracking across operations
+  - Performance timing with `logger.time()`
+  - Multiple formatters (pretty, JSON)
+  - Debug, info, warn, error levels
+
+### Example
+```typescript
+import { retry, CircuitBreaker, Logger, LogLevel } from 'context-weaver';
+
+// Retry with backoff
+const result = await retry(
+  () => fetchData(),
+  { maxAttempts: 3, initialDelay: 100 }
+);
+
+// Circuit breaker
+const breaker = new CircuitBreaker({ failureThreshold: 5 });
+await breaker.execute(() => dbQuery());
+
+// Logging
+const logger = new Logger({ level: LogLevel.DEBUG });
+logger.info('Operation started', { userId: '123' });
+```
+
 ## [0.6.0] - 2024-12-14
 
 ### Added

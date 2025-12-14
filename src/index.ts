@@ -107,6 +107,27 @@ export {
   type CompressionStats,
 } from './compression.js';
 
+// Retry & Error Recovery
+export {
+  retry,
+  retryWithCircuitBreaker,
+  CircuitBreaker,
+  CircuitState,
+  type RetryOptions,
+  type CircuitBreakerOptions,
+} from './retry.js';
+
+// Logging & Observability
+export {
+  Logger,
+  LogLevel,
+  defaultLogger,
+  prettyFormat,
+  jsonFormat,
+  type LogEntry,
+  type LoggerOptions,
+} from './logger.js';
+
 // Errors
 export {
   ContextWeaverError,
